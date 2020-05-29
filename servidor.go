@@ -12,14 +12,17 @@ import (
 )
 
 type Materia struct {
+	Id     uint64
 	Nombre string
 }
 
 type Alumno struct {
+	Id     uint64
 	Nombre string
 }
 
 type Calificacion struct {
+	Id           uint64
 	Alumno       Alumno
 	Materia      Materia
 	Calificacion float64
@@ -33,18 +36,25 @@ var lista_calificaciones = Calificaciones{}
 var lista_alumnos list.List
 var lista_materias list.List
 
+var cont_alumnos uint64 = 0
+var cont_materias uint64 = 0
+var cont_calificaciones uint64 = 0
+
 func (this *Calificaciones) Evaluar(datos []string, respuesta *string, danger *bool) error {
 	alumno_ := Alumno{
+		Id:     cont_alumnos,
 		Nombre: datos[0],
 	}
 
 	materia_ := Materia{
+		Id:     cont_materias,
 		Nombre: datos[1],
 	}
 
 	num, err := strconv.ParseFloat(datos[2], 64)
 	if err == nil {
 		evaluacion := Calificacion{
+			Id:           cont_calificaciones,
 			Alumno:       alumno_,
 			Materia:      materia_,
 			Calificacion: num,
@@ -59,6 +69,7 @@ func (this *Calificaciones) Evaluar(datos []string, respuesta *string, danger *b
 
 		if !bandera {
 			lista_alumnos.PushBack(alumno_)
+			cont_alumnos++
 		}
 
 		bandera = false
@@ -70,6 +81,7 @@ func (this *Calificaciones) Evaluar(datos []string, respuesta *string, danger *b
 
 		if !bandera {
 			lista_materias.PushBack(materia_)
+			cont_materias++
 		}
 
 		bandera = false
@@ -81,6 +93,7 @@ func (this *Calificaciones) Evaluar(datos []string, respuesta *string, danger *b
 
 		if !bandera {
 			lista_calificaciones.Calificaciones.PushBack(evaluacion)
+			cont_calificaciones++
 			*respuesta = "Evaluación anexada con éxito"
 			*danger = false
 		} else {
@@ -104,11 +117,12 @@ func (this *Calificaciones) Promedio(datos []string, respuesta *float64, danger 
 
 	if tipo == "1" { // promedio de alumno
 		alumno_ := Alumno{
+			Id:     12,
 			Nombre: auxiliar,
 		}
 
 		for e := lista_calificaciones.Calificaciones.Front(); e != nil; e = e.Next() {
-			if e.Value.(Calificacion).Alumno == alumno_ {
+			if e.Value.(Calificacion).Alumno.Nombre == alumno_.Nombre {
 				total += 1
 				promedio += e.Value.(Calificacion).Calificacion
 			}
@@ -134,11 +148,12 @@ func (this *Calificaciones) Promedio(datos []string, respuesta *float64, danger 
 		}
 	} else if tipo == "3" { // promedio de materia
 		materia_ := Materia{
+			Id:     12,
 			Nombre: auxiliar,
 		}
 
 		for e := lista_calificaciones.Calificaciones.Front(); e != nil; e = e.Next() {
-			if e.Value.(Calificacion).Materia == materia_ {
+			if e.Value.(Calificacion).Materia.Nombre == materia_.Nombre {
 				total += 1
 				promedio += e.Value.(Calificacion).Calificacion
 			}
@@ -444,6 +459,149 @@ func restauracion(res http.ResponseWriter, req *http.Request) {
 	)
 }
 
+func Update(id uint64, calificacion Calificacion) []byte {
+	bandera := false
+	for e := lista_calificaciones.Calificaciones.Front(); e != nil; e = e.Next() {
+		if e.Value.(Calificacion).Id == id {
+			lista_calificaciones.Calificaciones.Remove(e)
+			lista_calificaciones.Calificaciones.PushFront(calificacion)
+			bandera = true
+		}
+	}
+
+	if bandera == false {
+		return []byte(`{"code": "noexiste"}`)
+	} else {
+		return []byte(`{"code": "ok"}`)
+	}
+}
+
+/*
+func api_id(res http.ResponseWriter, req *http.Request) {
+	id, err := strconv.ParseUint(strings.TrimPrefix(req.URL.Path, "api/alumno/"), 10, 64)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Println(req.Method)
+	switch req.Method {
+	case "GET":
+		res_json, err := GetID(id)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+		}
+		res.Header().Set(
+			"Content-Type",
+			"application/json",
+		)
+		res.Write(res_json)
+	case "DELETE":
+		res_json := Delete(id)
+		res.Header().Set(
+			"Content-Type",
+			"application/json",
+		)
+		res.Write(res_json)
+	case "PUT":
+		var calificacion []string
+		err := json.NewDecoder(req.Body).Decode(&calificacion)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		fmt.Println(calificacion)
+		res_json := Update(id, calificacion)
+		res.Header().Set(
+			"Content-Type",
+			"application/json",
+		)
+		res.Write(res_json)
+	}
+}*/
+
+func Get() ([]byte, error) {
+	var temp_cal []Calificacion
+
+	for e := lista_calificaciones.Calificaciones.Front(); e != nil; e = e.Next() {
+		temp_cal = append(temp_cal, e.Value.(Calificacion))
+	}
+
+	jsonData, err := json.MarshalIndent(temp_cal, "", "    ")
+	if err != nil {
+		return jsonData, nil
+	}
+	return jsonData, err
+}
+
+func Add(temp_cal Calificacion) []byte {
+	var bandera = false
+	for e := lista_alumnos.Front(); e != nil; e = e.Next() {
+		if e.Value.(Alumno).Nombre == temp_cal.Alumno.Nombre {
+			bandera = true
+		}
+	}
+
+	if !bandera {
+		lista_alumnos.PushBack(temp_cal.Alumno)
+	}
+
+	bandera = false
+	for e := lista_materias.Front(); e != nil; e = e.Next() {
+		if e.Value.(Materia).Nombre == temp_cal.Materia.Nombre {
+			bandera = true
+		}
+	}
+
+	if !bandera {
+		lista_materias.PushBack(temp_cal.Materia)
+	}
+
+	bandera = false
+	for e := lista_calificaciones.Calificaciones.Front(); e != nil; e = e.Next() {
+		if e.Value.(Calificacion).Alumno.Nombre == temp_cal.Alumno.Nombre && e.Value.(Calificacion).Materia.Nombre == temp_cal.Materia.Nombre {
+			bandera = true
+		}
+	}
+
+	if !bandera {
+		lista_calificaciones.Calificaciones.PushBack(temp_cal)
+		return []byte(`{"code": "ok"}`)
+	} else {
+		return []byte(`{"code": "error, calificacion antes capturada"}`)
+	}
+}
+
+func api(res http.ResponseWriter, req *http.Request) {
+	fmt.Println(req.Method)
+	switch req.Method {
+	case "POST":
+		var calificacion Calificacion
+		err := json.NewDecoder(req.Body).Decode(&calificacion)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		fmt.Println(calificacion)
+		res_json := Add(calificacion)
+		res.Header().Set(
+			"Content-Type",
+			"application/json",
+		)
+		res.Write(res_json)
+	case "GET":
+		res_json, err := Get()
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		res.Header().Set(
+			"Content-Type",
+			"application/json",
+		)
+		res.Write(res_json)
+	}
+}
+
 func main() {
 	http.HandleFunc("/calificacion", calificacion)
 	http.HandleFunc("/promedio", promedio)
@@ -452,6 +610,8 @@ func main() {
 	http.HandleFunc("/respaldo", respaldo)
 	http.HandleFunc("/recuperacion", recuperacion)
 	http.HandleFunc("/restauracion", restauracion)
+	http.HandleFunc("/api", api)
+	//http.HandleFunc("/api/alumno/", api_id)
 	fmt.Println("Arrancando el servidor...")
 	http.ListenAndServe(":9000", nil)
 }
