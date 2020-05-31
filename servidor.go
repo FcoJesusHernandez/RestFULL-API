@@ -459,6 +459,42 @@ func restauracion(res http.ResponseWriter, req *http.Request) {
 	)
 }
 
+func GetID(id uint64) ([]byte, error) {
+	jsonData := []byte(`{}`)
+
+	var temp_cal []Calificacion
+
+	for e := lista_calificaciones.Calificaciones.Front(); e != nil; e = e.Next() {
+		if e.Value.(Calificacion).Id == id {
+			temp_cal = append(temp_cal, e.Value.(Calificacion))
+		}
+	}
+
+	jsonData, err := json.MarshalIndent(temp_cal, "", "    ")
+	if err != nil {
+		return jsonData, err
+	}
+	return jsonData, nil
+}
+
+func Delete(id uint64) []byte {
+	bandera := false
+
+	for e := lista_calificaciones.Calificaciones.Front(); e != nil; e = e.Next() {
+		if e.Value.(Calificacion).Id == id {
+			lista_calificaciones.Calificaciones.Remove(e)
+			bandera = true
+			break
+		}
+	}
+
+	if bandera == false {
+		return []byte(`{"code": "noexiste"}`)
+	}
+
+	return []byte(`{"code": "ok"}`)
+}
+
 func Update(id uint64, calificacion Calificacion) []byte {
 	bandera := false
 	for e := lista_calificaciones.Calificaciones.Front(); e != nil; e = e.Next() {
@@ -476,9 +512,8 @@ func Update(id uint64, calificacion Calificacion) []byte {
 	}
 }
 
-/*
 func api_id(res http.ResponseWriter, req *http.Request) {
-	id, err := strconv.ParseUint(strings.TrimPrefix(req.URL.Path, "api/alumno/"), 10, 64)
+	id, err := strconv.ParseUint(strings.TrimPrefix(req.URL.Path, "/alumno/"), 10, 64)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
@@ -503,13 +538,12 @@ func api_id(res http.ResponseWriter, req *http.Request) {
 		)
 		res.Write(res_json)
 	case "PUT":
-		var calificacion []string
+		var calificacion Calificacion
 		err := json.NewDecoder(req.Body).Decode(&calificacion)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fmt.Println(calificacion)
 		res_json := Update(id, calificacion)
 		res.Header().Set(
 			"Content-Type",
@@ -517,7 +551,7 @@ func api_id(res http.ResponseWriter, req *http.Request) {
 		)
 		res.Write(res_json)
 	}
-}*/
+}
 
 func Get() ([]byte, error) {
 	var temp_cal []Calificacion
@@ -611,7 +645,7 @@ func main() {
 	http.HandleFunc("/recuperacion", recuperacion)
 	http.HandleFunc("/restauracion", restauracion)
 	http.HandleFunc("/api", api)
-	//http.HandleFunc("/api/alumno/", api_id)
+	http.HandleFunc("/alumno/", api_id)
 	fmt.Println("Arrancando el servidor...")
 	http.ListenAndServe(":9000", nil)
 }
